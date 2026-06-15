@@ -163,10 +163,11 @@ static void http_write(int fd, const char *s) { write(fd, s, strlen(s)); }
 
 // Reply with a small JSON body (used by /version and /update).
 static void send_json(int fd, const char *json) {
-    char hdr[160];
+    char hdr[200];
     int m = snprintf(hdr, sizeof hdr,
         "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
-        "Access-Control-Allow-Origin: *\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n",
+        "Cache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\n"
+        "Connection: close\r\nContent-Length: %zu\r\n\r\n",
         strlen(json));
     write(fd, hdr, m);
     write(fd, json, strlen(json));
@@ -224,9 +225,11 @@ static void *accept_thread(void *arg) {
         if (q) { strncpy(query, q + 1, sizeof(query) - 1); *q = 0; }
 
         if (strcmp(target, "/") == 0) {
-            char hdr[160];
+            char hdr[200];
             int m = snprintf(hdr, sizeof hdr,
                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n"
+                "Cache-Control: no-store\r\n" // the page is baked into the binary;
+                                              // never serve a stale copy after an upgrade
                 "Content-Length: %u\r\nConnection: close\r\n\r\n", index_html_len);
             write(fd, hdr, m);
             write(fd, index_html, index_html_len);
