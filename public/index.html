@@ -1,0 +1,713 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tremor</title>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #11151c;
+    --ink: #e7ecf3;
+    --dim: #6b7686;
+    --line: #1d2530;
+    --accent: #39d0ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .wrap { height: 100%; display: grid; grid-template-rows: auto 1fr auto;
+    gap: 16px; padding: 22px clamp(16px, 4vw, 48px); }
+  header { display: flex; align-items: baseline; gap: 14px; }
+  h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: .02em; }
+  .sub { color: var(--dim); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #d3455b;
+    display: inline-block; margin-right: 6px; vertical-align: 1px;
+    box-shadow: 0 0 8px currentColor; transition: color .2s, background .2s; }
+  .dot.live { background: #46d17a; }
+  .stage { position: relative; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; min-height: 0; }
+  .scope { display: block; border: 1px solid var(--line); border-radius: 12px;
+    background: #090b0f; box-shadow: inset 0 1px 0 #ffffff06; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 2px 4px; }
+  .preset { font: inherit; font-size: 11px; padding: 5px 11px; border-radius: 7px;
+    border: 1px solid var(--line); background: #0d1118; color: var(--dim); cursor: pointer;
+    transition: background .15s, color .15s; }
+  .preset:hover { color: var(--ink); background: #161c26; }
+  .preset.reset { color: #c98; }
+  .preset.save { margin-left: auto; color: #8fc7ff; }
+  #user-presets { display: contents; }
+  .preset.user { display: inline-flex; align-items: center; gap: 5px; padding-right: 6px;
+    color: var(--ink); border-color: #294036; }
+  .preset.user .lab { cursor: pointer; }
+  .preset.user .x { color: var(--dim); font-size: 13px; line-height: 1; padding: 0 3px;
+    border-radius: 4px; cursor: pointer; }
+  .preset.user .x:hover { color: #ff7a6b; background: #ffffff12; }
+  .preset-name { font: inherit; font-size: 11px; width: 92px; padding: 4px 9px;
+    border-radius: 7px; border: 1px solid var(--accent); background: #0d1118;
+    color: var(--ink); outline: none; }
+  .pad { position: relative; border-radius: 18px; background:
+      radial-gradient(120% 120% at 50% 0%, #11161e 0%, #0c0f15 100%);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 #ffffff08, 0 30px 80px -40px #000; overflow: hidden; }
+  canvas { display: block; }
+  .hud { position: absolute; left: 16px; top: 14px; display: flex; gap: 26px;
+    pointer-events: none; text-shadow: 0 1px 4px #000a; }
+  .hud .k { color: var(--dim); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .08em; }
+  .hud .v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .hud .v small { font-size: 13px; color: var(--dim); font-weight: 500; }
+  footer { color: var(--dim); font-size: 11.5px; display: flex;
+    justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  kbd { background: #1b2230; border: 1px solid #283143; border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 6px; color: #c7d0dd; }
+  .switch { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line);
+    border-radius: 9px; background: #0d1118; }
+  .switch:empty { display: none; }
+  .switch button { appearance: none; border: 0; background: transparent; color: var(--dim);
+    font: inherit; font-size: 12px; padding: 4px 13px; border-radius: 6px; cursor: pointer;
+    white-space: nowrap; transition: background .15s, color .15s; }
+  .switch button:hover { color: var(--ink); }
+  .switch button.on { background: #1d2735; color: var(--ink); }
+  .btn { appearance: none; font: inherit; font-size: 12px; color: var(--dim);
+    background: #0d1118; border: 1px solid var(--line); border-radius: 9px;
+    padding: 7px 13px; cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s, border-color .15s; }
+  .btn:hover { color: var(--ink); }
+  .btn.on { color: #0a0c10; background: var(--accent); border-color: var(--accent);
+    box-shadow: 0 0 16px -2px var(--accent); }
+  .hint { font-size: 9px; margin-left: 4px; opacity: .5; vertical-align: 2px; }
+  .sys-wrap { position: relative; display: inline-flex; }
+  .pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20; width: 264px;
+    padding: 11px 13px; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 18px 44px -20px #000, 0 0 0 1px #0006; font-size: 12px; line-height: 1.5; }
+  .pop[hidden] { display: none; }
+  .pop b { display: block; margin-bottom: 6px; color: var(--accent); font-size: 10px;
+    font-weight: 650; text-transform: uppercase; letter-spacing: .07em; }
+  .pop p { margin: 6px 0 0; color: var(--dim); }
+  .btn.instr { color: #0a0c10; background: #f5b049; border-color: #f5b049;
+    box-shadow: 0 0 16px -2px #f5b049; }
+  .btn.instr .hint { opacity: .75; }
+  .main { display: grid; grid-template-columns: 300px 1fr; gap: 16px; min-height: 0; }
+  .panel { overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px 14px 18px; }
+  .grp { font-size: 10px; text-transform: uppercase; letter-spacing: .11em;
+    color: var(--accent); margin: 15px 2px 7px; opacity: .8; }
+  .grp:first-child { margin-top: 2px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 4px 2px;
+    font-size: 12px; color: var(--dim); cursor: default; }
+  .row > span { flex: 1 1 auto; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .row select, .row input[type=range] { flex: 0 1 110px; min-width: 72px; width: auto; }
+  .row select { background: #0d1118; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 12px; }
+  .row input[type=range] { accent-color: var(--accent); }
+  .row input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  .row b { flex: 0 0 auto; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums;
+    min-width: 46px; text-align: right; font-size: 11px; }
+  @media (max-width: 780px) { .main { grid-template-columns: 1fr; } .panel { max-height: 240px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Tremor</h1>
+    <span class="sub"><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
+    <button id="snd" class="btn on" style="margin-left:auto">♪ sound: on</button>
+    <span class="sys-wrap">
+      <button id="sys" class="btn" aria-expanded="false"
+        title="What's this? Click or hover. Toggle with Space.">
+        <span class="sys-label">🖱 system</span><span class="hint">ⓘ</span></button>
+      <div id="sys-pop" class="pop" hidden>
+        <b>Trackpad system input</b>
+        <p><kbd>Space</kbd> — turn on / off.</p>
+        <p>Off stops the trackpad from driving the system (cursor &amp; click) and turns it into a pure instrument — no distractions.</p>
+      </div>
+    </span>
+    <div id="switch" class="switch"></div>
+    <span class="sub" id="rate" style="margin-left:14px">— fps</span>
+  </header>
+
+  <div class="main">
+    <aside class="panel">
+      <div class="grp">presets</div>
+      <div class="presets">
+        <button class="preset" data-preset="pluck">pluck</button>
+        <button class="preset" data-preset="bell">bell</button>
+        <button class="preset" data-preset="drone">drone</button>
+        <button class="preset" data-preset="lead">lead</button>
+        <span id="user-presets"></span>
+        <input id="preset-name" class="preset-name" placeholder="name…" maxlength="16" hidden>
+        <button class="preset save" id="c-save">＋ save</button>
+        <button class="preset reset" id="c-reset">↺ reset</button>
+      </div>
+
+      <div class="grp">pitch</div>
+      <label class="row"><span>scale</span>
+        <select id="c-scale">
+          <option value="minPent">minor pentatonic</option>
+          <option value="majPent">major pentatonic</option>
+          <option value="major">major</option>
+          <option value="minor">minor</option>
+          <option value="dorian">dorian</option>
+          <option value="wholeTone">whole tone</option>
+          <option value="chromatic">chromatic</option>
+        </select></label>
+      <label class="row"><span>root</span>
+        <select id="c-root">
+          <option value="98">G2</option>
+          <option value="110">A2</option>
+          <option value="130.81">C3</option>
+          <option value="146.83" selected>D3</option>
+          <option value="164.81">E3</option>
+          <option value="196">G3</option>
+          <option value="261.63">C4</option>
+        </select></label>
+      <label class="row"><span>octaves</span><input type="range" id="c-oct" min="1" max="4" step="1" value="3"><b id="c-oct-v"></b></label>
+      <label class="row"><span>quantize to scale</span><input type="checkbox" id="c-quant" checked></label>
+      <label class="row"><span>waveform</span>
+        <select id="c-wave">
+          <option value="sine">sine</option>
+          <option value="triangle">triangle</option>
+          <option value="sawtooth" selected>sawtooth</option>
+          <option value="square">square</option>
+        </select></label>
+
+      <div class="grp">timbre · Y → cutoff</div>
+      <label class="row"><span>cutoff min</span><input type="range" id="c-cmin" min="80" max="2000" step="10" value="250"><b id="c-cmin-v"></b></label>
+      <label class="row"><span>cutoff max</span><input type="range" id="c-cmax" min="1000" max="12000" step="100" value="6500"><b id="c-cmax-v"></b></label>
+      <label class="row"><span>resonance</span><input type="range" id="c-q" min="0.5" max="20" step="0.5" value="5"><b id="c-q-v"></b></label>
+      <label class="row"><span>key-track</span><input type="range" id="c-keytrack" min="0" max="1" step="0.05" value="0.7"><b id="c-keytrack-v"></b></label>
+
+      <div class="grp">envelope · per touch</div>
+      <label class="row"><span>attack</span><input type="range" id="c-attack" min="0" max="1" step="0.005" value="0.005"><b id="c-attack-v"></b></label>
+      <label class="row"><span>decay</span><input type="range" id="c-decay" min="0.02" max="2" step="0.02" value="0.12"><b id="c-decay-v"></b></label>
+      <label class="row"><span>sustain</span><input type="range" id="c-sustain" min="0" max="1" step="0.05" value="1"><b id="c-sustain-v"></b></label>
+      <label class="row"><span>release</span><input type="range" id="c-release" min="0.02" max="3" step="0.02" value="0.25"><b id="c-release-v"></b></label>
+
+      <div class="grp">dynamics · force → level</div>
+      <label class="row"><span>max force</span><input type="range" id="c-maxforce" min="100" max="1200" step="20" value="600"><b id="c-maxforce-v"></b></label>
+      <label class="row"><span>response</span><input type="range" id="c-curve" min="0.3" max="2.5" step="0.05" value="0.6"><b id="c-curve-v"></b></label>
+      <label class="row"><span>voice level</span><input type="range" id="c-level" min="0.1" max="1" step="0.05" value="0.5"><b id="c-level-v"></b></label>
+      <label class="row"><span>glide</span><input type="range" id="c-glide" min="0" max="0.3" step="0.005" value="0.04"><b id="c-glide-v"></b></label>
+
+      <div class="grp">master</div>
+      <label class="row"><span>volume</span><input type="range" id="c-master" min="0" max="1" step="0.05" value="0.9"><b id="c-master-v"></b></label>
+      <label class="row"><span>reverb</span><input type="range" id="c-reverb" min="0" max="0.8" step="0.02" value="0.25"><b id="c-reverb-v"></b></label>
+    </aside>
+
+    <div class="stage">
+    <div class="pad" id="pad">
+      <canvas id="cv"></canvas>
+      <div class="hud">
+        <div><div class="k">force</div><div class="v"><span id="g">0.0</span><small> g</small></div></div>
+        <div><div class="k">contacts</div><div class="v" id="n">0</div></div>
+        <div><div class="k">peak</div><div class="v"><span id="pk">0</span><small> g</small></div></div>
+      </div>
+    </div>
+      <canvas id="scope" class="scope"></canvas>
+    </div>
+  </div>
+
+  <footer>
+    <span>Your trackpad, played like an instrument — every finger is its own voice.</span>
+    <span>← → pitch · ↑ ↓ timbre · press harder = louder. Rest a few fingers and play.</span>
+  </footer>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const pad = document.getElementById('pad');
+const scope = document.getElementById('scope');
+const sctx = scope.getContext('2d');
+let SW = 0, SH = 0;
+const els = {
+  dot: document.getElementById('dot'), status: document.getElementById('status'),
+  g: document.getElementById('g'), n: document.getElementById('n'),
+  pk: document.getElementById('pk'), rate: document.getElementById('rate'),
+  sw: document.getElementById('switch'), snd: document.getElementById('snd'),
+  sys: document.getElementById('sys'), sysPop: document.getElementById('sys-pop'),
+};
+
+// --- device switcher ---
+let devices = [];
+let selected = null;
+function labelOf(i) {
+  const d = devices.find((x) => x.i === i);
+  if (!d) return `dev ${i}`;
+  if (d.builtin) return 'built-in';
+  const exts = devices.filter((x) => !x.builtin);
+  return exts.length > 1 ? `external ${exts.indexOf(d) + 1}` : 'external';
+}
+function pick(i) {
+  if (selected !== null && selected !== i && !sysInput)
+    fetch(`/parser?d=${selected}&on=1`).catch(() => {}); // don't leave the old one dead
+  selected = i;
+  contacts = [];
+  audio.update([]); // silence voices from the previous device
+  for (const b of els.sw.children) b.classList.toggle('on', Number(b.dataset.i) === i);
+  setSysInput(true, false); // a newly selected device starts in system mode (baseline)
+}
+function buildSwitcher() {
+  els.sw.innerHTML = '';
+  if (devices.length < 2) return; // nothing to switch
+  for (const d of devices) {
+    const b = document.createElement('button');
+    b.textContent = labelOf(d.i);
+    b.dataset.i = d.i;
+    b.onclick = () => pick(d.i);
+    els.sw.appendChild(b);
+  }
+  const builtin = devices.find((d) => d.builtin);
+  pick(builtin ? builtin.i : devices[0].i);
+}
+
+// --- trackpad system-input toggle (Space / click): off = instrument-only ---
+let sysInput = true; // true: trackpad drives the OS cursor/clicks; false: sensor-only
+function setSysInput(on, send = true) {
+  sysInput = on;
+  els.sys.classList.toggle('instr', !on);
+  els.sys.querySelector('.sys-label').textContent = on ? '🖱 system' : '🎹 instrument';
+  if (send && selected !== null) fetch(`/parser?d=${selected}&on=${on ? 1 : 0}`).catch(() => {});
+}
+// Click the indicator to READ what it does (it does not toggle — Space does).
+els.sys.onclick = (e) => {
+  e.stopPropagation();
+  els.sysPop.hidden = !els.sysPop.hidden;
+  els.sys.setAttribute('aria-expanded', String(!els.sysPop.hidden));
+};
+els.sysPop.onclick = (e) => e.stopPropagation();
+function closePop() {
+  if (els.sysPop.hidden) return;
+  els.sysPop.hidden = true;
+  els.sys.setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('click', closePop);
+// Space is the only toggle (so it works without touching the trackpad itself).
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape') { closePop(); return; }
+  if (e.code !== 'Space') return;
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return; // let Space type
+  e.preventDefault();
+  setSysInput(!sysInput);
+});
+
+// Trackpad aspect ~ 16:10. Size to viewport.
+const ASPECT = 1.6;
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+function resize() {
+  const stage = pad.parentElement.getBoundingClientRect();
+  let w = Math.min(stage.width, 980), h = w / ASPECT;
+  if (h > stage.height) { h = stage.height; w = h * ASPECT; }
+  W = Math.floor(w); H = Math.floor(h);
+  pad.style.width = W + 'px'; pad.style.height = H + 'px';
+  cv.width = Math.floor(W * DPR); cv.height = Math.floor(H * DPR);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#0a0c10'; ctx.fillRect(0, 0, W, H);
+
+  SW = W; SH = Math.max(64, Math.min(110, Math.round(H * 0.22)));
+  scope.width = Math.floor(SW * DPR); scope.height = Math.floor(SH * DPR);
+  scope.style.width = SW + 'px'; scope.style.height = SH + 'px';
+  sctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener('resize', resize);
+
+// Thermal color ramp from a 0..1 intensity.
+function thermal(t) {
+  t = Math.max(0, Math.min(1, t));
+  const stops = [
+    [0.00, [10, 16, 30, 0]],
+    [0.18, [20, 70, 150, 0.55]],
+    [0.40, [30, 200, 220, 0.8]],
+    [0.62, [120, 230, 120, 0.9]],
+    [0.80, [248, 210, 70, 0.95]],
+    [1.00, [255, 90, 70, 1]],
+  ];
+  for (let i = 1; i < stops.length; i++) {
+    if (t <= stops[i][0]) {
+      const [a0, c0] = stops[i - 1], [a1, c1] = stops[i];
+      const f = (t - a0) / (a1 - a0);
+      const c = c0.map((v, k) => v + (c1[k] - v) * f);
+      return `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${c[3]})`;
+    }
+  }
+  return 'rgba(255,90,70,1)';
+}
+
+let contacts = [];
+let frames = 0, lastFpsT = performance.now(), fps = 0;
+
+function draw() {
+  // Fade previous frame for a thermal trail.
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(10,12,16,0.22)';
+  ctx.fillRect(0, 0, W, H);
+
+  let total = 0, peak = 0;
+  ctx.globalCompositeOperation = 'lighter';
+  for (const c of contacts) {
+    const g = c.g || 0; total += g; if (g > peak) peak = g;
+    const px = c.x * W;
+    const py = (1 - c.y) * H; // flip: sensor origin is bottom-left
+    const intensity = Math.min(1, Math.sqrt(g) / 16); // ~0..256g -> 0..1
+    const r = 26 + Math.sqrt(g) * 7;
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(-(c.a || 0)); // negate: pairs with the Y-flip above (sensor Y-up → canvas Y-down)
+    const ratio = c.j && c.n ? Math.max(0.5, Math.min(2, c.j / Math.max(c.n, 0.1))) : 1;
+    ctx.scale(ratio, 1 / ratio);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    grad.addColorStop(0, thermal(intensity));
+    grad.addColorStop(0.5, thermal(intensity * 0.6));
+    grad.addColorStop(1, 'rgba(10,12,16,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  els.g.textContent = total.toFixed(0);
+  els.n.textContent = contacts.length;
+  els.pk.textContent = peak.toFixed(0);
+
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsT > 500) {
+    fps = Math.round((frames * 1000) / (now - lastFpsT));
+    els.rate.textContent = fps + ' fps'; frames = 0; lastFpsT = now;
+  }
+  requestAnimationFrame(draw);
+}
+
+// --- audio engine: each contact is a voice (X→pitch, force→level, Y→timbre) ---
+const SCALES = {
+  minPent: [0, 3, 5, 7, 10],
+  majPent: [0, 2, 4, 7, 9],
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  wholeTone: [0, 2, 4, 6, 8, 10],
+  chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+};
+const DEFAULTS = {
+  master: 0.9, reverb: 0.25, wave: 'sawtooth',
+  scale: 'minPent', root: 146.83, octaves: 3, quantize: true,
+  cutMin: 250, cutMax: 6500, q: 5, keyTrack: 0.7,
+  attack: 0.005, decay: 0.12, sustain: 1, release: 0.25,
+  maxForce: 600, curve: 0.6, level: 0.5, glide: 0.04,
+};
+const STORE_KEY = 'tpv-cfg';
+function loadCfg() {
+  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORE_KEY) || '{}') }; }
+  catch { return { ...DEFAULTS }; }
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); } catch {}
+}
+const cfg = loadCfg();
+
+const PRESETS = {
+  pluck: { wave: 'sawtooth', scale: 'majPent', octaves: 3, quantize: true,
+    attack: 0.002, decay: 0.22, sustain: 0, release: 0.18,
+    cutMin: 400, cutMax: 7500, q: 6, keyTrack: 0.7, glide: 0.008, maxForce: 450, curve: 0.55, level: 0.55, reverb: 0.18 },
+  bell: { wave: 'sine', scale: 'majPent', octaves: 3, quantize: true,
+    attack: 0.001, decay: 1.4, sustain: 0, release: 1.1,
+    cutMin: 900, cutMax: 9000, q: 2, keyTrack: 0.8, glide: 0.004, maxForce: 550, curve: 0.6, level: 0.5, reverb: 0.45 },
+  drone: { wave: 'sawtooth', scale: 'minor', octaves: 2, quantize: true,
+    attack: 0.5, decay: 0.3, sustain: 1, release: 0.7,
+    cutMin: 160, cutMax: 2200, q: 3, keyTrack: 0.5, glide: 0.1, maxForce: 400, curve: 0.8, level: 0.4, reverb: 0.55 },
+  lead: { wave: 'square', scale: 'minPent', octaves: 3, quantize: true,
+    attack: 0.01, decay: 0.1, sustain: 0.85, release: 0.15,
+    cutMin: 500, cutMax: 8000, q: 8, keyTrack: 0.7, glide: 0.06, maxForce: 500, curve: 0.5, level: 0.45, reverb: 0.2 },
+};
+
+const audio = (() => {
+  const POOL = 12;
+  let ctx = null, master = null, wet = null, analyser = null, voices = [], enabled = false;
+
+  function noteFreq(x) {
+    if (!cfg.quantize) return cfg.root * Math.pow(2, x * cfg.octaves);
+    const scale = SCALES[cfg.scale] || SCALES.minPent;
+    const steps = scale.length * cfg.octaves;
+    const idx = Math.max(0, Math.min(steps - 1, Math.floor(x * steps)));
+    const semi = scale[idx % scale.length] + 12 * Math.floor(idx / scale.length);
+    return cfg.root * Math.pow(2, semi / 12);
+  }
+  function impulse(sec, decay) {
+    const len = Math.floor(ctx.sampleRate * sec);
+    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+  }
+  function build() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+    master = ctx.createGain(); master.gain.value = 0;
+    const rev = ctx.createConvolver(); rev.buffer = impulse(2.4, 2.6);
+    wet = ctx.createGain(); wet.gain.value = cfg.reverb;
+    analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.2;
+    master.connect(comp);
+    master.connect(rev); rev.connect(wet); wet.connect(comp);
+    comp.connect(ctx.destination);
+    comp.connect(analyser);
+    voices = [];
+    for (let i = 0; i < POOL; i++) {
+      const osc = ctx.createOscillator(); osc.type = cfg.wave;
+      const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400; filt.Q.value = cfg.q;
+      const env = ctx.createGain(); env.gain.value = 0; // ADSR shape, per touch
+      const vca = ctx.createGain(); vca.gain.value = 0; // force → level
+      const pan = ctx.createStereoPanner();
+      osc.connect(filt); filt.connect(env); env.connect(vca); vca.connect(pan); pan.connect(master);
+      osc.start();
+      voices.push({ osc, filt, env, vca, pan, id: null });
+    }
+  }
+  function alloc(id) {
+    const v = voices.find((v) => v.id === null) || voices[0];
+    v.id = id; return v;
+  }
+  function noteOn(v, t) {
+    const a = Math.max(0.001, cfg.attack), d = Math.max(0.001, cfg.decay);
+    v.env.gain.cancelScheduledValues(t);
+    v.env.gain.setValueAtTime(v.env.gain.value, t);
+    v.env.gain.linearRampToValueAtTime(1, t + a);
+    v.env.gain.linearRampToValueAtTime(cfg.sustain, t + a + d);
+  }
+  function noteOff(v, t) {
+    const r = Math.max(0.001, cfg.release);
+    v.env.gain.cancelScheduledValues(t);
+    v.env.gain.setValueAtTime(v.env.gain.value, t);
+    v.env.gain.linearRampToValueAtTime(0, t + r);
+  }
+  function update(contacts) {
+    if (!ctx || !enabled) return;
+    const t = ctx.currentTime;
+    const glide = Math.max(0.001, cfg.glide);
+    const ids = new Set(contacts.map((c) => c.id));
+    for (const v of voices)
+      if (v.id !== null && !ids.has(v.id)) { noteOff(v, t); v.id = null; }
+    for (const c of contacts) {
+      let v = voices.find((v) => v.id === c.id);
+      if (!v) { v = alloc(c.id); noteOn(v, t); }
+      const y = Math.max(0, Math.min(1, c.y));
+      const norm = Math.min(1, Math.max(0, c.g) / cfg.maxForce);
+      const vol = Math.pow(norm, cfg.curve) * cfg.level;
+      const f = noteFreq(c.x);
+      // key-tracking: lift the filter's low end toward the note pitch so high
+      // notes aren't silenced by a low cutoff. keyTrack 0 = fixed cutMin (original).
+      const trackedMin = Math.max(cfg.cutMin, f * 1.4);
+      const floor = cfg.cutMin * Math.pow(trackedMin / cfg.cutMin, cfg.keyTrack);
+      const top = Math.max(floor, cfg.cutMax);
+      v.osc.frequency.setTargetAtTime(f, t, glide);
+      v.filt.frequency.setTargetAtTime(floor * Math.pow(top / floor, y), t, 0.05);
+      v.vca.gain.setTargetAtTime(vol, t, 0.02);
+      v.pan.pan.setTargetAtTime(c.x * 2 - 1, t, 0.05);
+    }
+  }
+  function refresh() {
+    if (!ctx) return;
+    master.gain.setTargetAtTime(enabled ? cfg.master : 0, ctx.currentTime, 0.05);
+    wet.gain.setTargetAtTime(cfg.reverb, ctx.currentTime, 0.05);
+    for (const v of voices) { v.osc.type = cfg.wave; v.filt.Q.setTargetAtTime(cfg.q, ctx.currentTime, 0.05); }
+  }
+  function setEnabled(on) {
+    if (on && !ctx) build();
+    if (ctx) { ctx.resume(); master.gain.setTargetAtTime(on ? cfg.master : 0, ctx.currentTime, 0.05); }
+    enabled = on;
+    if (!on) update([]);
+  }
+  return { setEnabled, update, refresh, isOn: () => enabled, analyser: () => analyser };
+})();
+
+function reflectSound(on) {
+  els.snd.textContent = on ? '♪ sound: on' : '♪ sound: off';
+  els.snd.classList.toggle('on', on);
+}
+els.snd.onclick = () => { const on = !audio.isOn(); audio.setEnabled(on); reflectSound(on); };
+
+// Sound is on by default. The AudioContext starts suspended until the first user
+// gesture (browser autoplay policy), so unlock it on the first click/keypress.
+audio.setEnabled(true);
+reflectSound(true);
+const unlockAudio = () => audio.setEnabled(true);
+window.addEventListener('pointerdown', unlockAudio, { once: true });
+window.addEventListener('keydown', unlockAudio, { once: true });
+
+// --- controls: a single source of truth, bound both ways (cfg ⇄ inputs) ---
+const hz = (v) => (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(Math.round(v)));
+const ms = (v) => Math.round(v * 1000) + ' ms';
+const CONTROLS = [
+  ['c-scale', 'scale'],
+  ['c-root', 'root'],
+  ['c-oct', 'octaves'],
+  ['c-quant', 'quantize'],
+  ['c-wave', 'wave'],
+  ['c-cmin', 'cutMin', hz],
+  ['c-cmax', 'cutMax', hz],
+  ['c-q', 'q', (v) => v.toFixed(1)],
+  ['c-keytrack', 'keyTrack', (v) => Math.round(v * 100) + '%'],
+  ['c-attack', 'attack', ms],
+  ['c-decay', 'decay', ms],
+  ['c-sustain', 'sustain', (v) => v.toFixed(2)],
+  ['c-release', 'release', ms],
+  ['c-maxforce', 'maxForce', (v) => Math.round(v) + ' g'],
+  ['c-curve', 'curve', (v) => v.toFixed(2)],
+  ['c-level', 'level', (v) => v.toFixed(2)],
+  ['c-glide', 'glide', ms],
+  ['c-master', 'master', (v) => v.toFixed(2)],
+  ['c-reverb', 'reverb', (v) => v.toFixed(2)],
+];
+const elOf = (id) => document.getElementById(id);
+function readInput(el) {
+  if (el.type === 'checkbox') return el.checked;
+  if (el.type === 'range') return Number(el.value);
+  const num = Number(el.value);
+  return Number.isNaN(num) ? el.value : num;
+}
+function syncUI() { // push cfg → inputs + readouts (for load / preset / reset)
+  for (const [id, key, fmt] of CONTROLS) {
+    const el = elOf(id), out = elOf(id + '-v');
+    if (el.type === 'checkbox') el.checked = !!cfg[key]; else el.value = cfg[key];
+    if (out) out.textContent = fmt ? fmt(cfg[key]) : cfg[key];
+  }
+}
+for (const [id, key, fmt] of CONTROLS) {
+  const el = elOf(id), out = elOf(id + '-v');
+  el.addEventListener('input', () => {
+    cfg[key] = readInput(el);
+    if (out) out.textContent = fmt ? fmt(cfg[key]) : cfg[key];
+    audio.refresh(); save();
+  });
+}
+function applyPreset(obj) { Object.assign(cfg, obj); syncUI(); audio.refresh(); save(); }
+for (const b of document.querySelectorAll('.preset[data-preset]'))
+  b.onclick = () => applyPreset(PRESETS[b.dataset.preset]);
+elOf('c-reset').onclick = () => applyPreset(DEFAULTS);
+
+// --- user presets: named snapshots of cfg, persisted separately from settings ---
+const PRESETS_KEY = 'tpv-presets';
+let userPresets = (() => {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '{}'); } catch { return {}; }
+})();
+function saveUserPresets() {
+  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(userPresets)); } catch {}
+}
+function renderUserPresets() {
+  const box = elOf('user-presets');
+  box.innerHTML = '';
+  for (const name of Object.keys(userPresets)) {
+    const chip = document.createElement('span');
+    chip.className = 'preset user';
+    const lab = document.createElement('span');
+    lab.className = 'lab'; lab.textContent = name;
+    lab.onclick = () => applyPreset(userPresets[name]);
+    const x = document.createElement('span');
+    x.className = 'x'; x.textContent = '×'; x.title = 'delete preset';
+    x.onclick = () => { delete userPresets[name]; saveUserPresets(); renderUserPresets(); };
+    chip.append(lab, x);
+    box.appendChild(chip);
+  }
+}
+const nameInput = elOf('preset-name');
+function commitSave() {
+  const name = nameInput.value.trim();
+  nameInput.hidden = true; nameInput.value = '';
+  if (!name) return;
+  userPresets[name] = { ...cfg }; // full snapshot of current settings
+  saveUserPresets(); renderUserPresets();
+}
+elOf('c-save').onclick = () => { nameInput.hidden = false; nameInput.focus(); };
+nameInput.onkeydown = (e) => {
+  if (e.key === 'Enter') commitSave();
+  else if (e.key === 'Escape') { nameInput.hidden = true; nameInput.value = ''; }
+};
+nameInput.onblur = () => { if (!nameInput.hidden) commitSave(); };
+renderUserPresets();
+
+syncUI(); // reflect loaded/default cfg in the UI
+
+// SSE stream.
+let idleTimer = null;
+function setLive(live) {
+  els.dot.classList.toggle('live', live);
+  els.status.textContent = live ? 'live' : 'idle';
+}
+const es = new EventSource('/stream');
+es.onopen = () => { els.status.textContent = 'connected'; };
+es.onerror = () => { els.dot.classList.remove('live'); els.status.textContent = 'reconnecting…'; };
+es.onmessage = (e) => {
+  let msg;
+  try { msg = JSON.parse(e.data); } catch { return; }
+  if (msg.parser) { // helper confirmed a parser change — sync the indicator
+    if (msg.parser.d === selected || msg.parser.d === -1) setSysInput(!!msg.parser.on, false);
+    return;
+  }
+  if (msg.dev) { // helper (re)started → back to the safe system-input baseline
+    devices = msg.dev; buildSwitcher(); setSysInput(true, false); return;
+  }
+  if (!msg.c) return;
+  if (selected === null) selected = msg.d; // before dev list arrives
+  if (msg.d !== selected) return; // ignore other trackpads
+  contacts = msg.c;
+  audio.update(contacts);
+  setLive(contacts.length > 0);
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => { contacts = []; audio.update([]); setLive(false); }, 300);
+};
+
+// --- oscilloscope: live waveform (+ faint spectrum) of the audio output ---
+let waveBuf = null, freqBuf = null;
+function drawScope() {
+  const w = SW, h = SH, mid = h / 2;
+  sctx.fillStyle = '#090b0f'; sctx.fillRect(0, 0, w, h);
+  const an = audio.analyser();
+  if (an) {
+    const N = an.fftSize;
+    if (!waveBuf || waveBuf.length !== N) {
+      waveBuf = new Uint8Array(N); freqBuf = new Uint8Array(an.frequencyBinCount);
+    }
+    an.getByteFrequencyData(freqBuf);
+    const bars = 72, step = Math.floor(freqBuf.length / bars);
+    sctx.fillStyle = 'rgba(57,208,255,0.10)';
+    for (let i = 0; i < bars; i++) {
+      let m = 0;
+      for (let k = 0; k < step; k++) m = Math.max(m, freqBuf[i * step + k]);
+      const bh = (m / 255) * h;
+      sctx.fillRect((i / bars) * w, h - bh, w / bars - 1, bh);
+    }
+    an.getByteTimeDomainData(waveBuf);
+    // Trigger sync: lock the start to a rising mid-crossing so the wave stands
+    // still instead of scrolling. Show half the buffer from that point.
+    const span = N >> 1;
+    let trig = 0;
+    for (let i = 1; i < N - span; i++) {
+      if (waveBuf[i - 1] < 128 && waveBuf[i] >= 128) { trig = i; break; }
+    }
+    sctx.lineWidth = 2; sctx.strokeStyle = '#39d0ff';
+    sctx.shadowBlur = 8; sctx.shadowColor = '#39d0ff';
+    sctx.beginPath();
+    for (let i = 0; i < span; i++) {
+      const x = (i / (span - 1)) * w;
+      const y = mid + (waveBuf[trig + i] / 128 - 1) * (h * 0.42);
+      i ? sctx.lineTo(x, y) : sctx.moveTo(x, y);
+    }
+    sctx.stroke();
+    sctx.shadowBlur = 0;
+  } else {
+    sctx.strokeStyle = '#1d2530'; sctx.lineWidth = 1;
+    sctx.beginPath(); sctx.moveTo(0, mid); sctx.lineTo(w, mid); sctx.stroke();
+    sctx.fillStyle = '#39414f'; sctx.font = '11px ui-monospace, monospace';
+    sctx.fillText('enable sound to see the waveform', 12, mid - 8);
+  }
+  requestAnimationFrame(drawScope);
+}
+
+resize();
+requestAnimationFrame(draw);
+requestAnimationFrame(drawScope);
+</script>
