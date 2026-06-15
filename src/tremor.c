@@ -178,15 +178,18 @@ static const char *find_brew(void) {
     return NULL;
 }
 
-// Refresh the tap and upgrade tremor in place. Fixed command — nothing from the
-// HTTP request is interpolated. The newly linked binary takes effect on the next
-// launch (the running process is the old one), which the UI tells the user.
+// Refresh just the tap (fast — not a full `brew update`) and upgrade tremor in
+// place. Fixed command; nothing from the HTTP request is interpolated. The newly
+// linked binary takes effect on the next launch (the running process is the old
+// one), which the UI tells the user. Requires the tap to be trusted once at
+// install time (`brew trust toolittlecakes/tremor`).
 static const char *run_self_update(void) {
     const char *brew = find_brew();
     if (!brew) return "{\"ok\":false,\"error\":\"brew not found\"}";
-    char cmd[256];
+    char cmd[512];
     snprintf(cmd, sizeof cmd,
-        "%s update --quiet >/dev/null 2>&1 && %s upgrade tremor >/dev/null 2>&1",
+        "git -C \"$(%s --repo toolittlecakes/tremor)\" pull -q --ff-only >/dev/null 2>&1; "
+        "%s upgrade tremor >/dev/null 2>&1",
         brew, brew);
     int rc = system(cmd);
     return (rc == 0) ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"upgrade failed\"}";
