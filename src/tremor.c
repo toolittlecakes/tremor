@@ -38,6 +38,10 @@
 
 #include "html_embed.h" // index_html[], index_html_len — generated from public/index.html
 
+#ifndef TREMOR_VERSION
+#define TREMOR_VERSION "dev"
+#endif
+
 typedef void *MTDeviceRef;
 typedef struct { uint8_t _bytes[96]; } MTTouch;
 typedef void (*FnSetParser)(MTDeviceRef, bool);
@@ -157,6 +161,37 @@ static void schedule_parser(int idx, int on) {
 
 static void http_write(int fd, const char *s) { write(fd, s, strlen(s)); }
 
+// Reply with a small JSON body (used by /version and /update).
+static void send_json(int fd, const char *json) {
+    char hdr[160];
+    int m = snprintf(hdr, sizeof hdr,
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+        "Access-Control-Allow-Origin: *\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n",
+        strlen(json));
+    write(fd, hdr, m);
+    write(fd, json, strlen(json));
+}
+
+static const char *find_brew(void) {
+    if (access("/opt/homebrew/bin/brew", X_OK) == 0) return "/opt/homebrew/bin/brew";
+    if (access("/usr/local/bin/brew", X_OK) == 0) return "/usr/local/bin/brew";
+    return NULL;
+}
+
+// Refresh the tap and upgrade tremor in place. Fixed command — nothing from the
+// HTTP request is interpolated. The newly linked binary takes effect on the next
+// launch (the running process is the old one), which the UI tells the user.
+static const char *run_self_update(void) {
+    const char *brew = find_brew();
+    if (!brew) return "{\"ok\":false,\"error\":\"brew not found\"}";
+    char cmd[256];
+    snprintf(cmd, sizeof cmd,
+        "%s update --quiet >/dev/null 2>&1 && %s upgrade tremor >/dev/null 2>&1",
+        brew, brew);
+    int rc = system(cmd);
+    return (rc == 0) ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"upgrade failed\"}";
+}
+
 static int g_listen = -1;
 
 static void *accept_thread(void *arg) {
@@ -211,6 +246,14 @@ static void *accept_thread(void *arg) {
             if (po) on = atoi(po + 3);
             schedule_parser(d, on);
             http_write(fd, "HTTP/1.1 204 No Content\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+            close(fd);
+        } else if (strcmp(target, "/version") == 0) {
+            char b[96];
+            snprintf(b, sizeof b, "{\"version\":\"%s\"}", TREMOR_VERSION);
+            send_json(fd, b);
+            close(fd);
+        } else if (strcmp(target, "/update") == 0) {
+            send_json(fd, run_self_update());
             close(fd);
         } else {
             http_write(fd, "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
