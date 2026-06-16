@@ -151,6 +151,10 @@
         <button class="preset" data-preset="bell">bell</button>
         <button class="preset" data-preset="drone">drone</button>
         <button class="preset" data-preset="lead">lead</button>
+        <button class="preset" data-preset="bass">bass</button>
+        <button class="preset" data-preset="pad">pad</button>
+        <button class="preset" data-preset="marimba">marimba</button>
+        <button class="preset" data-preset="acid">acid</button>
         <span id="user-presets"></span>
         <input id="preset-name" class="preset-name" placeholder="name…" maxlength="16" hidden>
         <button class="preset save" id="c-save">＋ save</button>
@@ -437,6 +441,18 @@ const PRESETS = {
   lead: { wave: 'square', scale: 'minPent', octaves: 3, quantize: true,
     attack: 0.01, decay: 0.1, sustain: 0.85, release: 0.15,
     cutMin: 500, cutMax: 8000, q: 8, keyTrack: 0.7, glide: 0.06, maxForce: 500, curve: 0.5, level: 0.45, reverb: 0.2 },
+  bass: { wave: 'square', scale: 'minPent', root: 98, octaves: 2, quantize: true,
+    attack: 0.005, decay: 0.18, sustain: 0.6, release: 0.12,
+    cutMin: 120, cutMax: 1400, q: 4, keyTrack: 0.4, glide: 0.03, maxForce: 500, curve: 0.7, level: 0.5, reverb: 0.08 },
+  pad: { wave: 'triangle', scale: 'dorian', root: 130.81, octaves: 3, quantize: true,
+    attack: 0.6, decay: 0.4, sustain: 0.9, release: 1.2,
+    cutMin: 300, cutMax: 3500, q: 2, keyTrack: 0.6, glide: 0.12, maxForce: 450, curve: 0.8, level: 0.4, reverb: 0.6 },
+  marimba: { wave: 'triangle', scale: 'majPent', root: 196, octaves: 3, quantize: true,
+    attack: 0.001, decay: 0.36, sustain: 0, release: 0.3,
+    cutMin: 600, cutMax: 5000, q: 1.5, keyTrack: 0.8, glide: 0.002, maxForce: 500, curve: 0.5, level: 0.5, reverb: 0.25 },
+  acid: { wave: 'sawtooth', scale: 'minPent', root: 110, octaves: 2, quantize: true,
+    attack: 0.003, decay: 0.15, sustain: 0.2, release: 0.1,
+    cutMin: 200, cutMax: 4500, q: 14, keyTrack: 0.5, glide: 0.08, maxForce: 480, curve: 0.6, level: 0.45, reverb: 0.15 },
 };
 
 const audio = (() => {
