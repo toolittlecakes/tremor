@@ -22,7 +22,15 @@ tremor                                     # serves http://127.0.0.1:8788 and op
 ```
 
 Tremor checks for newer releases on launch and shows an in-app banner with an
-**Update** button (it runs `brew upgrade tremor` for you; restart to apply).
+**Update** button (it refreshes the tap and runs `brew upgrade tremor` for you;
+restart to apply).
+
+To update by hand, refresh the tap first — a plain `brew upgrade` won't see new
+releases of a third-party tap:
+
+```sh
+brew update && brew upgrade tremor
+```
 
 ## Build from source
 
