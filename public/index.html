@@ -192,11 +192,17 @@
           <option value="square">square</option>
         </select></label>
 
+      <div class="grp">tone</div>
+      <label class="row"><span>drive</span><input type="range" id="c-drive" min="0" max="1" step="0.02" value="0"><b id="c-drive-v"></b></label>
+      <label class="row"><span>unison</span><input type="range" id="c-detune" min="0" max="40" step="1" value="0"><b id="c-detune-v"></b></label>
+
       <div class="grp">timbre · Y → cutoff</div>
       <label class="row"><span>cutoff min</span><input type="range" id="c-cmin" min="80" max="2000" step="10" value="250"><b id="c-cmin-v"></b></label>
       <label class="row"><span>cutoff max</span><input type="range" id="c-cmax" min="1000" max="12000" step="100" value="6500"><b id="c-cmax-v"></b></label>
       <label class="row"><span>resonance</span><input type="range" id="c-q" min="0.5" max="20" step="0.5" value="5"><b id="c-q-v"></b></label>
       <label class="row"><span>key-track</span><input type="range" id="c-keytrack" min="0" max="1" step="0.05" value="0.7"><b id="c-keytrack-v"></b></label>
+      <label class="row"><span>filter env</span><input type="range" id="c-fenv" min="0" max="4" step="0.1" value="0"><b id="c-fenv-v"></b></label>
+      <label class="row"><span>env time</span><input type="range" id="c-fdec" min="0.02" max="2" step="0.02" value="0.3"><b id="c-fdec-v"></b></label>
 
       <div class="grp">envelope · per touch</div>
       <label class="row"><span>attack</span><input type="range" id="c-attack" min="0" max="1" step="0.005" value="0.005"><b id="c-attack-v"></b></label>
@@ -415,6 +421,7 @@ const DEFAULTS = {
   master: 0.9, reverb: 0.25, wave: 'sawtooth',
   scale: 'minPent', root: 146.83, octaves: 3, quantize: true,
   cutMin: 250, cutMax: 6500, q: 5, keyTrack: 0.7,
+  fenvAmt: 0, fenvDecay: 0.3, drive: 0, detune: 0,
   attack: 0.005, decay: 0.12, sustain: 1, release: 0.25,
   maxForce: 600, curve: 0.6, level: 0.5, glide: 0.04,
 };
@@ -431,28 +438,36 @@ const cfg = loadCfg();
 const PRESETS = {
   pluck: { wave: 'sawtooth', scale: 'majPent', octaves: 3, quantize: true,
     attack: 0.002, decay: 0.22, sustain: 0, release: 0.18,
-    cutMin: 400, cutMax: 7500, q: 6, keyTrack: 0.7, glide: 0.008, maxForce: 450, curve: 0.55, level: 0.55, reverb: 0.18 },
+    cutMin: 400, cutMax: 7500, q: 6, keyTrack: 0.7, fenvAmt: 1.5, fenvDecay: 0.15,
+    drive: 0.15, detune: 6, glide: 0.008, maxForce: 450, curve: 0.55, level: 0.55, reverb: 0.18 },
   bell: { wave: 'sine', scale: 'majPent', octaves: 3, quantize: true,
     attack: 0.001, decay: 1.4, sustain: 0, release: 1.1,
-    cutMin: 900, cutMax: 9000, q: 2, keyTrack: 0.8, glide: 0.004, maxForce: 550, curve: 0.6, level: 0.5, reverb: 0.45 },
+    cutMin: 900, cutMax: 9000, q: 2, keyTrack: 0.8, fenvAmt: 0, fenvDecay: 0.3,
+    drive: 0, detune: 4, glide: 0.004, maxForce: 550, curve: 0.6, level: 0.5, reverb: 0.45 },
   drone: { wave: 'sawtooth', scale: 'minor', octaves: 2, quantize: true,
     attack: 0.5, decay: 0.3, sustain: 1, release: 0.7,
-    cutMin: 160, cutMax: 2200, q: 3, keyTrack: 0.5, glide: 0.1, maxForce: 400, curve: 0.8, level: 0.4, reverb: 0.55 },
+    cutMin: 160, cutMax: 2200, q: 3, keyTrack: 0.5, fenvAmt: 0.5, fenvDecay: 1.0,
+    drive: 0.25, detune: 12, glide: 0.1, maxForce: 400, curve: 0.8, level: 0.4, reverb: 0.55 },
   lead: { wave: 'square', scale: 'minPent', octaves: 3, quantize: true,
     attack: 0.01, decay: 0.1, sustain: 0.85, release: 0.15,
-    cutMin: 500, cutMax: 8000, q: 8, keyTrack: 0.7, glide: 0.06, maxForce: 500, curve: 0.5, level: 0.45, reverb: 0.2 },
+    cutMin: 500, cutMax: 8000, q: 8, keyTrack: 0.7, fenvAmt: 1.0, fenvDecay: 0.2,
+    drive: 0.3, detune: 10, glide: 0.06, maxForce: 500, curve: 0.5, level: 0.45, reverb: 0.2 },
   bass: { wave: 'square', scale: 'minPent', root: 98, octaves: 2, quantize: true,
     attack: 0.005, decay: 0.18, sustain: 0.6, release: 0.12,
-    cutMin: 120, cutMax: 1400, q: 4, keyTrack: 0.4, glide: 0.03, maxForce: 500, curve: 0.7, level: 0.5, reverb: 0.08 },
+    cutMin: 120, cutMax: 1400, q: 4, keyTrack: 0.4, fenvAmt: 1.2, fenvDecay: 0.12,
+    drive: 0.35, detune: 5, glide: 0.03, maxForce: 500, curve: 0.7, level: 0.5, reverb: 0.08 },
   pad: { wave: 'triangle', scale: 'dorian', root: 130.81, octaves: 3, quantize: true,
     attack: 0.6, decay: 0.4, sustain: 0.9, release: 1.2,
-    cutMin: 300, cutMax: 3500, q: 2, keyTrack: 0.6, glide: 0.12, maxForce: 450, curve: 0.8, level: 0.4, reverb: 0.6 },
+    cutMin: 300, cutMax: 3500, q: 2, keyTrack: 0.6, fenvAmt: 0.8, fenvDecay: 0.9,
+    drive: 0.1, detune: 18, glide: 0.12, maxForce: 450, curve: 0.8, level: 0.4, reverb: 0.6 },
   marimba: { wave: 'triangle', scale: 'majPent', root: 196, octaves: 3, quantize: true,
     attack: 0.001, decay: 0.36, sustain: 0, release: 0.3,
-    cutMin: 600, cutMax: 5000, q: 1.5, keyTrack: 0.8, glide: 0.002, maxForce: 500, curve: 0.5, level: 0.5, reverb: 0.25 },
+    cutMin: 600, cutMax: 5000, q: 1.5, keyTrack: 0.8, fenvAmt: 2.0, fenvDecay: 0.1,
+    drive: 0.05, detune: 0, glide: 0.002, maxForce: 500, curve: 0.5, level: 0.5, reverb: 0.25 },
   acid: { wave: 'sawtooth', scale: 'minPent', root: 110, octaves: 2, quantize: true,
     attack: 0.003, decay: 0.15, sustain: 0.2, release: 0.1,
-    cutMin: 200, cutMax: 4500, q: 14, keyTrack: 0.5, glide: 0.08, maxForce: 480, curve: 0.6, level: 0.45, reverb: 0.15 },
+    cutMin: 200, cutMax: 4500, q: 14, keyTrack: 0.5, fenvAmt: 3.0, fenvDecay: 0.18,
+    drive: 0.4, detune: 0, glide: 0.08, maxForce: 480, curve: 0.6, level: 0.45, reverb: 0.15 },
 };
 
 const audio = (() => {
@@ -476,6 +491,12 @@ const audio = (() => {
     }
     return buf;
   }
+  const UNISON = 3, SPREAD = [-1, 0, 1]; // detuned oscillators per voice (unison spread)
+  function driveCurve(amount) { // soft-clip waveshaper; amount 0 → transparent (identity)
+    const n = 1024, curve = new Float32Array(n), k = amount * 80;
+    for (let i = 0; i < n; i++) { const x = (i * 2) / n - 1; curve[i] = k === 0 ? x : (1 + k) * x / (1 + k * Math.abs(x)); }
+    return curve;
+  }
   function build() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     const comp = ctx.createDynamicsCompressor();
@@ -490,14 +511,20 @@ const audio = (() => {
     comp.connect(analyser);
     voices = [];
     for (let i = 0; i < POOL; i++) {
-      const osc = ctx.createOscillator(); osc.type = cfg.wave;
+      const oscSum = ctx.createGain(); oscSum.gain.value = 1 / UNISON;
+      const oscs = [];
+      for (let k = 0; k < UNISON; k++) {
+        const osc = ctx.createOscillator(); osc.type = cfg.wave; osc.detune.value = SPREAD[k] * cfg.detune;
+        osc.connect(oscSum); osc.start();
+        oscs.push(osc);
+      }
       const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 400; filt.Q.value = cfg.q;
+      const shaper = ctx.createWaveShaper(); shaper.oversample = '4x'; shaper.curve = driveCurve(cfg.drive);
       const env = ctx.createGain(); env.gain.value = 0; // ADSR shape, per touch
       const vca = ctx.createGain(); vca.gain.value = 0; // force → level
       const pan = ctx.createStereoPanner();
-      osc.connect(filt); filt.connect(env); env.connect(vca); vca.connect(pan); pan.connect(master);
-      osc.start();
-      voices.push({ osc, filt, env, vca, pan, id: null });
+      oscSum.connect(filt); filt.connect(shaper); shaper.connect(env); env.connect(vca); vca.connect(pan); pan.connect(master);
+      voices.push({ oscs, oscSum, filt, shaper, env, vca, pan, id: null });
     }
   }
   function alloc(id) {
@@ -510,6 +537,14 @@ const audio = (() => {
     v.env.gain.setValueAtTime(v.env.gain.value, t);
     v.env.gain.linearRampToValueAtTime(1, t + a);
     v.env.gain.linearRampToValueAtTime(cfg.sustain, t + a + d);
+    // filter envelope: open the cutoff by fenvAmt octaves, then decay back to the
+    // Y-controlled base. Rides on filt.detune (cents) so it composes with the
+    // Y→frequency mapping in update() instead of fighting it.
+    const peak = cfg.fenvAmt * 1200, fd = Math.max(0.01, cfg.fenvDecay);
+    v.filt.detune.cancelScheduledValues(t);
+    v.filt.detune.setValueAtTime(0, t);
+    v.filt.detune.linearRampToValueAtTime(peak, t + a);
+    v.filt.detune.linearRampToValueAtTime(0, t + a + fd);
   }
   function noteOff(v, t) {
     const r = Math.max(0.001, cfg.release);
@@ -536,7 +571,7 @@ const audio = (() => {
       const trackedMin = Math.max(cfg.cutMin, f * 1.4);
       const floor = cfg.cutMin * Math.pow(trackedMin / cfg.cutMin, cfg.keyTrack);
       const top = Math.max(floor, cfg.cutMax);
-      v.osc.frequency.setTargetAtTime(f, t, glide);
+      for (const o of v.oscs) o.frequency.setTargetAtTime(f, t, glide);
       v.filt.frequency.setTargetAtTime(floor * Math.pow(top / floor, y), t, 0.05);
       v.vca.gain.setTargetAtTime(vol, t, 0.02);
       v.pan.pan.setTargetAtTime(c.x * 2 - 1, t, 0.05);
@@ -546,7 +581,14 @@ const audio = (() => {
     if (!ctx) return;
     master.gain.setTargetAtTime(enabled ? cfg.master : 0, ctx.currentTime, 0.05);
     wet.gain.setTargetAtTime(cfg.reverb, ctx.currentTime, 0.05);
-    for (const v of voices) { v.osc.type = cfg.wave; v.filt.Q.setTargetAtTime(cfg.q, ctx.currentTime, 0.05); }
+    for (const v of voices) {
+      for (let k = 0; k < v.oscs.length; k++) {
+        v.oscs[k].type = cfg.wave;
+        v.oscs[k].detune.setTargetAtTime(SPREAD[k] * cfg.detune, ctx.currentTime, 0.02);
+      }
+      v.filt.Q.setTargetAtTime(cfg.q, ctx.currentTime, 0.05);
+      v.shaper.curve = driveCurve(cfg.drive);
+    }
   }
   function setEnabled(on) {
     if (on && !ctx) build();
@@ -580,10 +622,14 @@ const CONTROLS = [
   ['c-oct', 'octaves'],
   ['c-quant', 'quantize'],
   ['c-wave', 'wave'],
+  ['c-drive', 'drive', (v) => v.toFixed(2)],
+  ['c-detune', 'detune', (v) => Math.round(v) + ' ¢'],
   ['c-cmin', 'cutMin', hz],
   ['c-cmax', 'cutMax', hz],
   ['c-q', 'q', (v) => v.toFixed(1)],
   ['c-keytrack', 'keyTrack', (v) => Math.round(v * 100) + '%'],
+  ['c-fenv', 'fenvAmt', (v) => v.toFixed(1) + ' oct'],
+  ['c-fdec', 'fenvDecay', ms],
   ['c-attack', 'attack', ms],
   ['c-decay', 'decay', ms],
   ['c-sustain', 'sustain', (v) => v.toFixed(2)],
